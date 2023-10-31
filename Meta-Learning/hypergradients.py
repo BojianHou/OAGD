@@ -80,7 +80,9 @@ def fixed_point(params: List[Tensor],
                 outer_loss: Callable[[List[Tensor], List[Tensor]], Tensor],
                 tol=1e-10,
                 set_grad=True,
-                stochastic=False) -> List[Tensor]:
+                stochastic=False,
+                momentum=0.9  # momentum for the window smoothing
+                ) -> List[Tensor]:
     """
     Computes the hypergradient by applying K steps of the fixed point method (it can end earlier when tol is reached).
 
@@ -125,7 +127,8 @@ def fixed_point(params: List[Tensor],
         w_mapped = fp_map(params, hparams)
 
     grads = torch_grad(w_mapped, hparams, grad_outputs=vs, allow_unused=True)
-    grads = [g + v if g is not None else v for g, v in zip(grads, grad_outer_hparams)]
+    # grads = [g + v if g is not None else v for g, v in zip(grads, grad_outer_hparams)]
+    grads = [momentum * g + v if g is not None else v for g, v in zip(grads, grad_outer_hparams)]
 
     if set_grad:
         update_tensor_grads(hparams, grads)
@@ -140,7 +143,9 @@ def CG(params: List[Tensor],
        outer_loss: Callable[[List[Tensor], List[Tensor]], Tensor],
        tol=1e-10,
        set_grad=True,
-       stochastic=False) -> List[Tensor]:
+       stochastic=False,
+       momentum=0.9  # momentum for the window smoothing
+       ) -> List[Tensor]:
     """
      Computes the hypergradient by applying K steps of the conjugate gradient method (CG).
      It can end earlier when tol is reached.
@@ -179,7 +184,8 @@ def CG(params: List[Tensor],
         w_mapped = fp_map(params, hparams)
 
     grads = torch_grad(w_mapped, hparams, grad_outputs=vs)
-    grads = [g + v for g, v in zip(grads, grad_outer_hparams)]
+    # grads = [g + v for g, v in zip(grads, grad_outer_hparams)]
+    grads = [momentum * g + v for g, v in zip(grads, grad_outer_hparams)]
 
     if set_grad:
         update_tensor_grads(hparams, grads)

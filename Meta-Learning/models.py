@@ -2,6 +2,45 @@ import math
 from torch import nn, optim
 import learn2learn as l2l
 import torch
+import higher
+from torch.nn import functional as F
+
+
+class Task:
+    """
+    Handles the train and validation loss for a single task
+    """
+    def __init__(self, reg_param, meta_model, data, batch_size=None):
+        device = next(meta_model.parameters()).device
+
+        # stateless version of meta_model
+        self.fmodel = higher.monkeypatch(meta_model, device=device, copy_initial_weights=True)
+
+        self.n_params = len(list(meta_model.parameters()))
+        self.train_input, self.train_target, self.test_input, self.test_target = data
+        self.reg_param = reg_param
+        self.batch_size = 1 if not batch_size else batch_size
+        self.val_loss, self.val_acc = None, None
+
+    def bias_reg_f(self, bias, params):
+        # l2 biased regularization
+        return sum([((b - p) ** 2).sum() for b, p in zip(bias, params)])
+
+    def train_loss_f(self, params, hparams):
+        # biased regularized cross-entropy loss where the bias are the meta-parameters in hparams
+        out = self.fmodel(self.train_input, params=params)
+        return F.cross_entropy(out, self.train_target) + 0.5 * self.reg_param * self.bias_reg_f(hparams, params)
+
+    def val_loss_f(self, params, hparams):
+        # cross-entropy loss (uses only the task-specific weights in params
+        out = self.fmodel(self.test_input, params=params)
+        val_loss = F.cross_entropy(out, self.test_target)/self.batch_size
+        self.val_loss = val_loss.item()  # avoid memory leaks
+
+        pred = out.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        self.val_acc = pred.eq(self.test_target.view_as(pred)).sum().item() / len(self.test_target)
+
+        return val_loss
 
 
 class Lambda(nn.Module):
@@ -80,7 +119,33 @@ def create_model_ANIL(device, inner_lr, outer_lr, ways, dataset):
 
 
 def create_model_OAGD(device, inner_lr, outer_lr, ways, dataset):
-    return
+
+    meta_model = get_cnn(hidden_size=64, n_classes=ways, input_channel=3).to(device)
+    outer_opt = torch.optim.SGD(lr=outer_lr, params=meta_model.parameters())
+
+    return meta_model, [], outer_opt, []
+
+
+def get_cnn(hidden_size, n_classes, input_channel):
+    def conv_layer(ic, oc, ):
+        return nn.Sequential(
+            nn.Conv2d(ic, oc, 3, padding=1), nn.ReLU(inplace=True), nn.MaxPool2d(2),
+            nn.BatchNorm2d(oc, momentum=1., affine=True,
+                           track_running_stats=True # When this is true is called the "transductive setting"
+                           )
+        )
+
+    net =  nn.Sequential(
+        conv_layer(input_channel, hidden_size),
+        conv_layer(hidden_size, hidden_size),
+        conv_layer(hidden_size, hidden_size),
+        conv_layer(hidden_size, hidden_size),
+        nn.Flatten(),
+        nn.Linear(hidden_size*25, n_classes)
+    )
+
+    initialize(net)
+    return net
 
 
 def get_cnn_omniglot(hidden_size, n_classes):

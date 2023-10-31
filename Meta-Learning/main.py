@@ -30,36 +30,6 @@ def accuracy(predictions, targets):
     return (predictions == targets).sum().float() / targets.size(0)
 
 
-def fast_adapt(batch, learner, features, loss, reg_lambda,
-               adaptation_steps, shots, ways, device='cuda'):
-
-    data, labels = batch
-    data, labels = data.to(device), labels.to(device)
-    data = features(data)
-
-    # Separate data into adaptation/evaluation sets
-    adaptation_indices = np.zeros(data.size(0), dtype=bool)
-    adaptation_indices[np.arange(shots * ways) * 2] = True
-    evaluation_indices = torch.from_numpy(~adaptation_indices)
-    adaptation_indices = torch.from_numpy(adaptation_indices)
-    adaptation_data, adaptation_labels = data[adaptation_indices], labels[adaptation_indices]
-    evaluation_data, evaluation_labels = data[evaluation_indices], labels[evaluation_indices]
-
-    for step in range(adaptation_steps):
-        l2_reg = 0
-        for p in learner.parameters():
-            l2_reg += p.norm(2)
-        train_error = loss(learner(adaptation_data), adaptation_labels) + reg_lambda * l2_reg
-        learner.adapt(train_error)
-
-    predictions = learner(evaluation_data)
-    valid_error = loss(predictions, evaluation_labels)
-    valid_accuracy = accuracy(predictions, evaluation_labels)
-
-
-    return valid_error, valid_accuracy
-
-
 def main(args, ways=5, shots=5, cuda=1, seed=42):
 
     random.seed(seed)
@@ -105,8 +75,8 @@ def main(args, ways=5, shots=5, cuda=1, seed=42):
                                             args.inner_stp, args.reg, device)
         else:
             meta_train_error, meta_train_accuracy = \
-                train_one_epoch_OAGD(args.method, meta_model, all_parameters,
-                             loss, optimizer, train_tasks, args.inner_stp, args.reg, device)
+                train_one_epoch_OAGD(args, meta_model, all_parameters,
+                             loss, optimizer, train_tasks, args.inner_stp, device)
             meta_test_error, meta_test_accuracy = \
                 evaluate_one_epoch_OAGD(args.method, meta_model, loss, test_tasks,
                                         args.inner_stp, args.reg, device)

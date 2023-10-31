@@ -1,5 +1,8 @@
 import torch
 import numpy as np
+from models import Task
+from hypergradients import *
+from diff_optimizers import *
 
 
 def accuracy(predictions, targets):
@@ -99,9 +102,64 @@ def evaluate_one_epoch_baseline(method, meta_model, loss, train_tasks, inner_ste
     return meta_eval_error / num_tasks, meta_eval_accuracy / num_tasks
 
 
-def train_one_epoch_OAGD(method, meta_model, train_parameters,
-                             loss, optimizer, train_tasks, inner_steps, reg_lambda,
-                             device, num_tasks=32, shots=5, ways=5):
+def inner_loop(hparams, params, optim, n_steps, log_interval=None, create_graph=False):
+    params_history = [optim.get_opt_params(params)]
+
+    for t in range(n_steps):
+        params_history.append(optim(params_history[-1], hparams, create_graph=create_graph))
+
+        if log_interval and (t % log_interval == 0 or t == n_steps-1):
+            print('t={}, Loss: {:.6f}'.format(t, optim.curr_loss.item()))
+
+    return params_history
+
+
+def get_inner_opt(train_loss, inner_lr=0.1):
+    inner_opt_class = GradientDescent
+    inner_opt_kwargs = {'step_size': inner_lr}
+    return inner_opt_class(train_loss, **inner_opt_kwargs)
+
+
+def train_one_epoch_OAGD(args, meta_model, loss, optimizer, train_tasks, inner_steps,
+                             device, momentum_list, num_tasks=32, shots=5, ways=5):
+
+    optimizer.zero_grad()
+    meta_train_error = 0.0
+    meta_train_accuracy = 0.0
+    for task_idx in range(num_tasks):
+
+        # if iteration - task_idx < 0: pass
+        # data, labels = train_tasks[iteration-task_idx]  # current task
+        data, labels = train_tasks.sample()
+        data, labels = data.to(device), labels.to(device)
+        # Separate data into adaptation/evaluation sets
+        adaptation_data, adaptation_labels, evaluation_data, evaluation_labels \
+            = split_data(data, labels, shots, ways, device)
+
+        # single task set up
+        task = Task(args.reg, meta_model, (adaptation_data, adaptation_labels,
+                                            evaluation_data, evaluation_labels), batch_size=args.win_size)
+        inner_opt = get_inner_opt(task.train_loss_f)
+
+        # single task inner loop
+        params = [p.detach().clone().requires_grad_(True) for p in meta_model.parameters()]
+        last_param = \
+        inner_loop(meta_model.parameters(), params, inner_opt, inner_steps)[-1]
+
+        # single task hypergradient computation
+        if args.hg_mode == 'CG':
+            # This is the approximation used in the paper CG stands for conjugate gradient
+            cg_fp_map = GradientDescent(loss_f=task.train_loss_f, step_size=1)  # original 1.
+            CG(last_param, list(meta_model.parameters()), K=5,
+               fp_map=cg_fp_map, outer_loss=task.val_loss_f, momentum=momentum_list[task_idx])
+        elif args.hg_mode == 'fixed_point':
+            fixed_point(last_param, list(meta_model.parameters()), K=5, fp_map=inner_opt,
+                        outer_loss=task.val_loss_f, momentum=momentum_list[task_idx])
+
+        meta_train_error += task.val_loss
+        meta_train_accuracy += task.val_acc
+
+    optimizer.step()
 
     return
 
