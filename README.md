@@ -1,6 +1,6 @@
 # Online Bilevel Optimization: Regret Analysis of Online Alternating Gradient Methods
 
-This is the official repository for the manuscript
+This repository holds the official code for the manuscript
 "Online Bilevel Optimization: Regret Analysis of Online Alternating Gradient Methods"
 submitted to AISTATS 2024.
 
