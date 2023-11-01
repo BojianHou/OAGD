@@ -24,13 +24,15 @@ def split_data(data, labels, shots, ways, device):
     return adaptation_data, adaptation_labels, evaluation_data, evaluation_labels
 
 
-def fast_adapt(method, batch, learner, loss, shots, ways, inner_steps, reg_lambda, device):
+def fast_adapt(method, batch, learner, features, loss, shots, ways, inner_steps, reg_lambda, device):
     data, labels = batch
 
     adaptation_data, adaptation_labels, evaluation_data, evaluation_labels \
         = split_data(data, labels, shots, ways, device)
 
     if method == 'ITD-BiO' or method == 'ANIL':
+        adaptation_data = features(adaptation_data)
+        evaluation_data = features(evaluation_data)
         for step in range(inner_steps):
             l2_reg = 0
             for p in learner.parameters():
@@ -49,7 +51,7 @@ def fast_adapt(method, batch, learner, loss, shots, ways, inner_steps, reg_lambd
     return evaluation_error, evaluation_accuracy
 
 
-def train_one_epoch_baseline(args, meta_model, train_parameters,
+def train_one_epoch_baseline(args, meta_model, features, train_parameters,
                              loss, optimizer, train_tasks,
                              device, num_tasks=32, shots=5, ways=5):
 
@@ -69,7 +71,7 @@ def train_one_epoch_baseline(args, meta_model, train_parameters,
         learner = meta_model.clone()
         batch = train_tasks.sample()
 
-        evaluation_error, evaluation_accuracy = fast_adapt(args.method, batch, learner, loss,
+        evaluation_error, evaluation_accuracy = fast_adapt(args.method, batch, learner, features, loss,
                                                            shots, ways, args.inner_stp, args.reg, device)
 
         evaluation_error.backward()
@@ -85,7 +87,7 @@ def train_one_epoch_baseline(args, meta_model, train_parameters,
     return meta_train_error / num_tasks, meta_train_accuracy / num_tasks
 
 
-def evaluate_one_epoch_baseline(args, meta_model, loss, train_tasks,
+def evaluate_one_epoch_baseline(args, meta_model, features, loss, train_tasks,
                              device, num_tasks=32, shots=5, ways=5):
     meta_eval_error = 0.0
     meta_eval_accuracy = 0.0
@@ -94,7 +96,7 @@ def evaluate_one_epoch_baseline(args, meta_model, loss, train_tasks,
         learner = meta_model.clone()
         batch = train_tasks.sample()
 
-        evaluation_error, evaluation_accuracy = fast_adapt(args.method, batch, learner, loss,
+        evaluation_error, evaluation_accuracy = fast_adapt(args.method, batch, learner, features, loss,
                                                            shots, ways, args.inner_stp,
                                                            args.reg, device)
         meta_eval_error += evaluation_error.item()

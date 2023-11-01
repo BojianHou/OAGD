@@ -1,3 +1,4 @@
+import os
 import time
 import random
 import numpy as np
@@ -72,9 +73,9 @@ def main(args, ways=5, shots=5, cuda=1, seed=42):
 
         if args.method != 'OAGD':
             meta_train_error, meta_train_accuracy = \
-                train_one_epoch_baseline(args, meta_model, all_parameters, loss, optimizer, train_tasks, device)
+                train_one_epoch_baseline(args, meta_model, features, all_parameters, loss, optimizer, train_tasks, device)
             meta_test_error, meta_test_accuracy = \
-                evaluate_one_epoch_baseline(args, meta_model, loss, test_tasks, device)
+                evaluate_one_epoch_baseline(args, meta_model, features, loss, test_tasks, device)
         else:
             meta_train_error, meta_train_accuracy = \
                 train_one_epoch_OAGD(args, meta_model, optimizer, train_tasks, device, momentum_list)
@@ -116,10 +117,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='OAGD')
     parser.add_argument('--iters', type=int, default=400)
     parser.add_argument('--win_size', type=int, default=10)
-    parser.add_argument('--no_cuda', action='store_true', default=False, help='disables CUDA training')
-    parser.add_argument('--hg_mode', type=str, default='CG', metavar='N', help='hypergradient approximation: CG or fixed_point')
-    parser.add_argument('--dataset', type=str, default='miniimagenet', metavar='N', help='fc100 or miniimagenet')
-    parser.add_argument('--method', type=str, default='MAML', help='OAGD, ANIL, ITD-BiO or MAML')
+    parser.add_argument('--no_cuda', action='store_true', default=False,
+                        help='disables CUDA training')
+    parser.add_argument('--hg_mode', type=str, default='CG', metavar='N',
+                        help='hypergradient approximation: CG or fixed_point')
+    parser.add_argument('--dataset', type=str, default='miniimagenet', metavar='N',
+                        help='fc100 or miniimagenet')
+    parser.add_argument('--method', type=str, default='ANIL',
+                        help='OAGD, ANIL, ITD-BiO or MAML')
     parser.add_argument('--outer_lr', type=float, default=0.001)
     parser.add_argument('--inner_lr', type=float, default=0.1)
     parser.add_argument('--inner_stp', type=int, default=5)
@@ -175,6 +180,9 @@ if __name__ == '__main__':
                 + '_iters_' + str(args.iters) + '_outer_lr_' + str(args.outer_lr) \
                 + '_inner_lr_' + str(args.inner_lr) + '_inner_stp_' + str(args.inner_stp) \
                 + '_reg_' + str(args.reg)
+
+    if not os.path.isdir("results"):
+        os.makedirs("results")
 
     with open('results/' + file_name + '.pkl', 'wb') as f:
         pickle.dump(results, f)
