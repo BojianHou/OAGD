@@ -20,7 +20,11 @@ conda activate OAGD
 
 ### 🔨 Usage
 To run the code for either Hyperparameter-Optimization or Meta-Learning, 
-please use ```bash python main.py``` with specific arguments in each folder.
+please use 
+```bash 
+python main.py
+``` 
+with specific arguments in each folder.
 
 
 ### 📭 Maintainers
