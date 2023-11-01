@@ -21,3 +21,9 @@ conda activate OAGD
 ### 🔨 Usage
 To run the code for either Hyperparameter-Optimization or Meta-Learning, 
 please use ```bash python main.py``` with specific arguments in each folder.
+
+
+### 📭 Maintainers
+[Bojian Hou](http://bojianhou.com) 
+- ([bojian.hou@pennmedicine.upenn.edu](mailto:bojian.hou@pennmedicine.upenn.edu))
+- ([hobo.hbj@gmail.com](mailto:hobo.hbj@gmail.com))
