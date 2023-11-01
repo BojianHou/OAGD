@@ -10,10 +10,10 @@ from torch import nn
 
 import pickle
 import argparse
-from data_loader import load_data
-from trainer import train_one_epoch_baseline, evaluate_one_epoch_baseline, \
+from dataset.data_loader import load_data
+from core.trainer import train_one_epoch_baseline, evaluate_one_epoch_baseline, \
                     train_one_epoch_OAGD, evaluate_one_epoch_OAGD
-from models import create_model
+from models.models import create_model
 
 
 class Lambda(nn.Module):

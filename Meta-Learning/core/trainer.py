@@ -1,8 +1,8 @@
 import torch
 import numpy as np
-from models import Task
-from hypergradients import *
-from diff_optimizers import *
+from models.models import Task
+from hypergrad.hypergradients import *
+from hypergrad.diff_optimizers import *
 
 
 def accuracy(predictions, targets):
