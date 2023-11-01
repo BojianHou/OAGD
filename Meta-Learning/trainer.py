@@ -49,8 +49,8 @@ def fast_adapt(method, batch, learner, loss, shots, ways, inner_steps, reg_lambd
     return evaluation_error, evaluation_accuracy
 
 
-def train_one_epoch_baseline(method, meta_model, train_parameters,
-                             loss, optimizer, train_tasks, inner_steps, reg_lambda,
+def train_one_epoch_baseline(args, meta_model, train_parameters,
+                             loss, optimizer, train_tasks,
                              device, num_tasks=32, shots=5, ways=5):
 
     # This is the function for training metamodel in one epoch for the baseline methods ITD-BiO, ANIL and MAML
@@ -69,8 +69,8 @@ def train_one_epoch_baseline(method, meta_model, train_parameters,
         learner = meta_model.clone()
         batch = train_tasks.sample()
 
-        evaluation_error, evaluation_accuracy = fast_adapt(method, batch, learner, loss,
-                                                           shots, ways, inner_steps, reg_lambda, device)
+        evaluation_error, evaluation_accuracy = fast_adapt(args.method, batch, learner, loss,
+                                                           shots, ways, args.inner_stp, args.reg, device)
 
         evaluation_error.backward()
         meta_train_error += evaluation_error.item()
@@ -85,7 +85,7 @@ def train_one_epoch_baseline(method, meta_model, train_parameters,
     return meta_train_error / num_tasks, meta_train_accuracy / num_tasks
 
 
-def evaluate_one_epoch_baseline(method, meta_model, loss, train_tasks, inner_steps, reg_lambda,
+def evaluate_one_epoch_baseline(args, meta_model, loss, train_tasks,
                              device, num_tasks=32, shots=5, ways=5):
     meta_eval_error = 0.0
     meta_eval_accuracy = 0.0
@@ -94,8 +94,9 @@ def evaluate_one_epoch_baseline(method, meta_model, loss, train_tasks, inner_ste
         learner = meta_model.clone()
         batch = train_tasks.sample()
 
-        evaluation_error, evaluation_accuracy = fast_adapt(method, batch, learner, loss, shots, ways, inner_steps,
-                                                           reg_lambda, device)
+        evaluation_error, evaluation_accuracy = fast_adapt(args.method, batch, learner, loss,
+                                                           shots, ways, args.inner_stp,
+                                                           args.reg, device)
         meta_eval_error += evaluation_error.item()
         meta_eval_accuracy += evaluation_accuracy.item()
 
@@ -120,13 +121,13 @@ def get_inner_opt(train_loss, inner_lr=0.1):
     return inner_opt_class(train_loss, **inner_opt_kwargs)
 
 
-def train_one_epoch_OAGD(args, meta_model, loss, optimizer, train_tasks, inner_steps,
-                             device, momentum_list, num_tasks=32, shots=5, ways=5):
+def train_one_epoch_OAGD(args, meta_model, optimizer, train_tasks,
+                             device, momentum_list, shots=5, ways=5):
 
     optimizer.zero_grad()
     meta_train_error = 0.0
     meta_train_accuracy = 0.0
-    for task_idx in range(num_tasks):
+    for task_idx in range(args.win_size):
 
         # if iteration - task_idx < 0: pass
         # data, labels = train_tasks[iteration-task_idx]  # current task
@@ -139,12 +140,11 @@ def train_one_epoch_OAGD(args, meta_model, loss, optimizer, train_tasks, inner_s
         # single task set up
         task = Task(args.reg, meta_model, (adaptation_data, adaptation_labels,
                                             evaluation_data, evaluation_labels), batch_size=args.win_size)
-        inner_opt = get_inner_opt(task.train_loss_f)
+        inner_opt = get_inner_opt(task.train_loss_f, args.inner_lr)
 
         # single task inner loop
         params = [p.detach().clone().requires_grad_(True) for p in meta_model.parameters()]
-        last_param = \
-        inner_loop(meta_model.parameters(), params, inner_opt, inner_steps)[-1]
+        last_param = inner_loop(meta_model.parameters(), params, inner_opt, args.inner_stp)[-1]
 
         # single task hypergradient computation
         if args.hg_mode == 'CG':
@@ -161,8 +161,31 @@ def train_one_epoch_OAGD(args, meta_model, loss, optimizer, train_tasks, inner_s
 
     optimizer.step()
 
-    return
+    return meta_train_error / args.win_size, meta_train_accuracy / args.win_size
 
-def evaluate_one_epoch_OAGD(method, meta_model, loss, test_tasks,
-                                inner_steps, reg, device):
-    return
+
+def evaluate_one_epoch_OAGD(args, task_loader, meta_model, shots=5, ways=5):
+    meta_model.train()
+    device = next(meta_model.parameters()).device
+
+    meta_eval_error = 0.0
+    meta_eval_accuracy = 0.0
+    for idx in range(args.win_size):
+        data, labels = task_loader.sample()
+        data, labels = data.to(device), labels.to(device)
+        # Separate data into adaptation/evaluation sets
+        adaptation_data, adaptation_labels, evaluation_data, evaluation_labels \
+            = split_data(data, labels, shots, ways, device)
+
+        task = Task(args.reg, meta_model, (adaptation_data, adaptation_labels, evaluation_data, evaluation_labels))
+        inner_opt = get_inner_opt(task.train_loss_f, args.inner_lr)
+
+        params = [p.detach().clone().requires_grad_(True) for p in meta_model.parameters()]
+        last_param = inner_loop(meta_model.parameters(), params, inner_opt, args.inner_stp)[-1]
+
+        task.val_loss_f(last_param, meta_model.parameters())
+
+        meta_eval_error += task.val_loss
+        meta_eval_accuracy += task.val_acc
+
+    return meta_eval_error / args.win_size, meta_eval_accuracy / args.win_size

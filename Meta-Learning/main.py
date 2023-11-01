@@ -1,4 +1,4 @@
-import os
+import time
 import random
 import numpy as np
 import matplotlib
@@ -53,12 +53,16 @@ def main(args, ways=5, shots=5, cuda=1, seed=42):
 
     loss = nn.CrossEntropyLoss(reduction='mean')
 
-    training_accuracy = torch.ones(args.iters)
-    training_error = torch.ones(args.iters)
-    test_accuracy = torch.ones(args.iters)
-    test_error = torch.ones(args.iters)
-    running_time = np.ones(args.iters)
-    import time
+    training_accuracy = []
+    training_error = []
+    test_accuracy = []
+    test_error = []
+    running_time = []
+
+    momentum_list = [args.gamma ** i for i in range(args.win_size)]
+    W = sum(momentum_list)
+    momentum_list = [momentum / W for momentum in momentum_list]
+
     start_time = time.time()
 
     for iteration in range(args.iters):
@@ -68,23 +72,19 @@ def main(args, ways=5, shots=5, cuda=1, seed=42):
 
         if args.method != 'OAGD':
             meta_train_error, meta_train_accuracy = \
-                train_one_epoch_baseline(args.method, meta_model, all_parameters,
-                             loss, optimizer, train_tasks, args.inner_stp, args.reg, device)
+                train_one_epoch_baseline(args, meta_model, all_parameters, loss, optimizer, train_tasks, device)
             meta_test_error, meta_test_accuracy = \
-                evaluate_one_epoch_baseline(args.method, meta_model, loss, test_tasks,
-                                            args.inner_stp, args.reg, device)
+                evaluate_one_epoch_baseline(args, meta_model, loss, test_tasks, device)
         else:
             meta_train_error, meta_train_accuracy = \
-                train_one_epoch_OAGD(args, meta_model, all_parameters,
-                             loss, optimizer, train_tasks, args.inner_stp, device)
+                train_one_epoch_OAGD(args, meta_model, optimizer, train_tasks, device, momentum_list)
             meta_test_error, meta_test_accuracy = \
-                evaluate_one_epoch_OAGD(args.method, meta_model, loss, test_tasks,
-                                        args.inner_stp, args.reg, device)
+                evaluate_one_epoch_OAGD(args, test_tasks, meta_model)
 
-        training_accuracy[iteration] = meta_train_accuracy
-        training_error[iteration] = meta_train_error
-        test_accuracy[iteration] = meta_test_accuracy
-        test_error[iteration] = meta_test_error
+        training_accuracy.append(meta_train_accuracy)
+        training_error.append(meta_train_error)
+        test_accuracy.append(meta_test_accuracy)
+        test_error.append(meta_test_error)
 
         # Print some metrics
         print('\n')
@@ -104,12 +104,11 @@ def main(args, ways=5, shots=5, cuda=1, seed=42):
 
         optimizer.step()
         end_time = time.time()
-        running_time[iteration] = end_time - start_time
+        running_time.append(end_time - start_time)
         print('time per iteration', end_time - start_per_iter)
         print('total running time', end_time - start_time)
 
-    return training_accuracy.numpy(), training_error.numpy(), \
-        test_accuracy.numpy(), test_error.numpy(), running_time
+    return training_accuracy, training_error, test_accuracy, test_error, running_time
 
 
 if __name__ == '__main__':
