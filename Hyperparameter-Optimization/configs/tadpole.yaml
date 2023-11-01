@@ -25,7 +25,7 @@ low_lr_schedule:
 # Lower level batch size
 low_batch_size: 128
 low_lr_warmup: 5
-epoch: 400  # 300
+epoch: 10  # 300
 
 # For CIFAR only, the unbalance factor,
 # and select wether the validation is balanced or not

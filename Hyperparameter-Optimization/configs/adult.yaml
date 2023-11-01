@@ -3,7 +3,7 @@ dataset: adult
 datapath: ~/data/
 device: cuda  #cuda
 # Log and result save path
-save_path: results/adult/
+save_path: results/
 checkpoint_interval: 30
 eval_interval: 1
 
