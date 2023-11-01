@@ -73,7 +73,8 @@ def main(args, ways=5, shots=5, cuda=1, seed=42):
 
         if args.method != 'OAGD':
             meta_train_error, meta_train_accuracy = \
-                train_one_epoch_baseline(args, meta_model, features, all_parameters, loss, optimizer, train_tasks, device)
+                train_one_epoch_baseline(args, iteration, meta_model, features, all_parameters,
+                                         loss, optimizer, train_tasks, device)
             meta_test_error, meta_test_accuracy = \
                 evaluate_one_epoch_baseline(args, meta_model, features, loss, test_tasks, device)
         else:

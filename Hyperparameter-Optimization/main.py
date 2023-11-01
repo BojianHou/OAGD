@@ -222,11 +222,11 @@ def main(seed, args):
 if __name__ ==  '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default='tadpole')  # adult, mnist, tadpole, cifar10
-    parser.add_argument('--method', type=str, default='OAGD')  # autobalance, OAGD, SGD, OGD
-    parser.add_argument('--win_size', type=int, default=5)
+    parser.add_argument('--dataset', type=str, default='tadpole', help='adult, mnist, tadpole, cifar10')
+    parser.add_argument('--method', type=str, default='OAGD', help='autobalance, OAGD, SGD, OGD')
+    parser.add_argument('--win_size', type=int, default=5, help='window size for hypergradient smoothing')
     parser.add_argument('--batch_size', type=int, default=128)  # 128
-    parser.add_argument('--gamma', type=float, default=0.9)  # gamma is for calculating the momentum for smoothing
+    parser.add_argument('--gamma', type=float, default=0.9, help='used for calculating the momentum for smoothing')
     parser.add_argument('--inner_lr', type=float, default=0.1)
     parser.add_argument('--outer_lr', type=float, default=0.001)
     args = parser.parse_args()

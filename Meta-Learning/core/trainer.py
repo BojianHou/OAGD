@@ -51,7 +51,7 @@ def fast_adapt(method, batch, learner, features, loss, shots, ways, inner_steps,
     return evaluation_error, evaluation_accuracy
 
 
-def train_one_epoch_baseline(args, meta_model, features, train_parameters,
+def train_one_epoch_baseline(args, cur_iter, meta_model, features, train_parameters,
                              loss, optimizer, train_tasks,
                              device, num_tasks=32, shots=5, ways=5):
 
@@ -66,6 +66,9 @@ def train_one_epoch_baseline(args, meta_model, features, train_parameters,
     optimizer.zero_grad()
     meta_train_error = 0.0
     meta_train_accuracy = 0.0
+
+    # baseline offline models will be trained on cumulated data observed until current iteration
+    num_tasks = cur_iter + 1
 
     for task in range(num_tasks):
         learner = meta_model.clone()
@@ -87,14 +90,14 @@ def train_one_epoch_baseline(args, meta_model, features, train_parameters,
     return meta_train_error / num_tasks, meta_train_accuracy / num_tasks
 
 
-def evaluate_one_epoch_baseline(args, meta_model, features, loss, train_tasks,
+def evaluate_one_epoch_baseline(args, meta_model, features, loss, task_loader,
                              device, num_tasks=32, shots=5, ways=5):
     meta_eval_error = 0.0
     meta_eval_accuracy = 0.0
 
     for task in range(num_tasks):
         learner = meta_model.clone()
-        batch = train_tasks.sample()
+        batch = task_loader.sample()
 
         evaluation_error, evaluation_accuracy = fast_adapt(args.method, batch, learner, features, loss,
                                                            shots, ways, args.inner_stp,
@@ -123,7 +126,7 @@ def get_inner_opt(train_loss, inner_lr=0.1):
     return inner_opt_class(train_loss, **inner_opt_kwargs)
 
 
-def train_one_epoch_OAGD(args, meta_model, optimizer, train_tasks,
+def train_one_epoch_OAGD(args, cur_iter, meta_model, optimizer, train_tasks,
                              device, momentum_list, shots=5, ways=5):
 
     optimizer.zero_grad()
@@ -131,9 +134,9 @@ def train_one_epoch_OAGD(args, meta_model, optimizer, train_tasks,
     meta_train_accuracy = 0.0
     for task_idx in range(args.win_size):
 
-        # if iteration - task_idx < 0: pass
-        # data, labels = train_tasks[iteration-task_idx]  # current task
-        data, labels = train_tasks.sample()
+        if cur_iter - task_idx < 0: pass
+        data, labels = train_tasks[cur_iter-task_idx]  # current task
+        # data, labels = train_tasks.sample()
         data, labels = data.to(device), labels.to(device)
         # Separate data into adaptation/evaluation sets
         adaptation_data, adaptation_labels, evaluation_data, evaluation_labels \
