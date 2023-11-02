@@ -70,9 +70,10 @@ def train_one_epoch_baseline(args, cur_iter, meta_model, features, train_paramet
     # baseline offline models will be trained on cumulated data observed until current iteration
     num_tasks = cur_iter + 1
 
-    for task in range(num_tasks):
+    for task_idx in range(num_tasks):
         learner = meta_model.clone()
-        batch = train_tasks.sample()
+        # batch = train_tasks.sample()
+        batch = train_tasks[task_idx]
 
         evaluation_error, evaluation_accuracy = fast_adapt(args.method, batch, learner, features, loss,
                                                            shots, ways, args.inner_stp, args.reg, device)
