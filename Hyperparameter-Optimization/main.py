@@ -9,7 +9,8 @@ from utils.metrics import print_num_params
 from core.trainer import train_epoch, eval_epoch, train_epoch_online, train_epoch_OGD, train_epoch_SGD
 from core.utils import loss_adjust_cross_entropy, cross_entropy,loss_adjust_cross_entropy_cdt
 from core.utils import get_init_dy, get_init_ly, get_train_w, get_val_w
-from dataset.cifar10 import load_cifar10, load_mnist
+from dataset.cifar10 import load_cifar10
+from dataset.mnist import load_mnist
 from dataset.tadpole import load_tadpole
 from dataset.adult import load_adult
 from models.MLP import build_model_mlp, build_model_cnn, get_cnn_small, get_cnn_large
