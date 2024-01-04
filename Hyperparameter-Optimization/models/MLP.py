@@ -32,6 +32,17 @@ class MLP(nn.Module):
         return x
 
 
+def get_model(dataset, num_classes, img_size=None, device='cuda'):
+    if dataset == 'adult' or dataset == 'tadpole':
+        return build_model_mlp(img_size, num_classes, device)
+    elif dataset == 'mnist':
+        return get_cnn_small(hidden_size=64, n_classes=num_classes)
+    elif dataset == 'cifar10':
+        return build_model_cnn(num_classes)
+    else:
+        raise NotImplementedError(dataset, " not implemented!")
+
+
 def build_model_mlp(img_size, num_classes, device):
     len_in = 1
     for x in img_size:

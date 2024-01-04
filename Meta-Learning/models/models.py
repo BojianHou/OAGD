@@ -76,7 +76,8 @@ def create_model_MAML(device, inner_lr, outer_lr, ways, dataset):
     # model = torch.nn.Sequential(features, Lambda(lambda x: x.view(25, -1)))
     meta_model.to(device)
     meta_model = l2l.algorithms.MAML(meta_model, lr=inner_lr, first_order=False)
-    optimizer = optim.SGD(meta_model.parameters(), outer_lr)
+    # optimizer = optim.SGD(meta_model.parameters(), outer_lr)
+    optimizer = optim.Adam(meta_model.parameters(), outer_lr)
 
     return meta_model, features, optimizer, meta_model.parameters()
 
@@ -93,7 +94,8 @@ def create_model_ITD_BiO(device, inner_lr, outer_lr, ways, dataset):
     meta_model = l2l.algorithms.MAML(head, lr=inner_lr)
     meta_model.to(device)
     all_parameters = list(features.parameters())
-    optimizer = torch.optim.SGD(all_parameters, lr=outer_lr)
+    # optimizer = torch.optim.SGD(all_parameters, lr=outer_lr)
+    optimizer = torch.optim.Adam(all_parameters, lr=outer_lr)
 
     return meta_model, features, optimizer, all_parameters
 
@@ -112,7 +114,9 @@ def create_model_ANIL(device, inner_lr, outer_lr, ways, dataset):
 
     # Setup optimization
     all_parameters = list(features.parameters()) + list(meta_model.parameters())
-    optimizer = torch.optim.SGD([{'params': list(meta_model.parameters()), 'lr': outer_lr},
+    # optimizer = torch.optim.SGD([{'params': list(meta_model.parameters()), 'lr': outer_lr},
+    #                              {'params': list(features.parameters()), 'lr': outer_lr}])
+    optimizer = torch.optim.Adam([{'params': list(meta_model.parameters()), 'lr': outer_lr},
                                  {'params': list(features.parameters()), 'lr': outer_lr}])
 
     return meta_model, features, optimizer, all_parameters
@@ -120,13 +124,19 @@ def create_model_ANIL(device, inner_lr, outer_lr, ways, dataset):
 
 def create_model_OAGD(device, inner_lr, outer_lr, ways, dataset):
 
-    meta_model = get_cnn(hidden_size=64, n_classes=ways, input_channel=3).to(device)
-    outer_opt = torch.optim.SGD(lr=outer_lr, params=meta_model.parameters())
+    if dataset == 'fc100':
+        align = 4
+    else:
+        align = 25
+
+    meta_model = get_cnn(hidden_size=64, n_classes=ways, input_channel=3, align=align).to(device)
+    # outer_opt = torch.optim.SGD(lr=outer_lr, params=meta_model.parameters())
+    outer_opt = torch.optim.Adam(lr=outer_lr, params=meta_model.parameters())
 
     return meta_model, [], outer_opt, []
 
 
-def get_cnn(hidden_size, n_classes, input_channel):
+def get_cnn(hidden_size, n_classes, input_channel, align):
     def conv_layer(ic, oc, ):
         return nn.Sequential(
             nn.Conv2d(ic, oc, 3, padding=1), nn.ReLU(inplace=True), nn.MaxPool2d(2),
@@ -141,7 +151,7 @@ def get_cnn(hidden_size, n_classes, input_channel):
         conv_layer(hidden_size, hidden_size),
         conv_layer(hidden_size, hidden_size),
         nn.Flatten(),
-        nn.Linear(hidden_size*25, n_classes)
+        nn.Linear(hidden_size*align, n_classes)
     )
 
     initialize(net)

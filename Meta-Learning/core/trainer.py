@@ -3,6 +3,7 @@ import numpy as np
 from models.models import Task
 from hypergrad.hypergradients import *
 from hypergrad.diff_optimizers import *
+import random
 
 
 def accuracy(predictions, targets):
@@ -129,15 +130,21 @@ def get_inner_opt(train_loss, inner_lr=0.1):
 
 def train_one_epoch_OAGD(args, cur_iter, meta_model, optimizer, train_tasks,
                              device, momentum_list, shots=5, ways=5):
-
+    meta_model.train()
     optimizer.zero_grad()
     meta_train_error = 0.0
     meta_train_accuracy = 0.0
+    memory_size = 100
     for task_idx in range(args.win_size):
 
-        if cur_iter - task_idx < 0: pass
-        data, labels = train_tasks[cur_iter-task_idx]  # current task
+        # if cur_iter - task_idx < 0: pass
+        # data, labels = train_tasks[cur_iter-task_idx]  # current task
+        if cur_iter <= memory_size:
+            idx = random.randint(0, memory_size)
+        else:
+            idx = random.randint(cur_iter - memory_size, cur_iter)
         # data, labels = train_tasks.sample()
+        data, labels = train_tasks[idx]
         data, labels = data.to(device), labels.to(device)
         # Separate data into adaptation/evaluation sets
         adaptation_data, adaptation_labels, evaluation_data, evaluation_labels \
@@ -155,9 +162,11 @@ def train_one_epoch_OAGD(args, cur_iter, meta_model, optimizer, train_tasks,
         # single task hypergradient computation
         if args.hg_mode == 'CG':
             # This is the approximation used in the paper CG stands for conjugate gradient
-            cg_fp_map = GradientDescent(loss_f=task.train_loss_f, step_size=1)  # original 1.
+            # cg_fp_map = GradientDescent(loss_f=task.train_loss_f, step_size=1.)  # original 1.
+            # CG(last_param, list(meta_model.parameters()), K=5,
+            #    fp_map=cg_fp_map, outer_loss=task.val_loss_f, momentum=momentum_list[task_idx])
             CG(last_param, list(meta_model.parameters()), K=5,
-               fp_map=cg_fp_map, outer_loss=task.val_loss_f, momentum=momentum_list[task_idx])
+               fp_map=inner_opt, outer_loss=task.val_loss_f, momentum=momentum_list[task_idx])
         elif args.hg_mode == 'fixed_point':
             fixed_point(last_param, list(meta_model.parameters()), K=5, fp_map=inner_opt,
                         outer_loss=task.val_loss_f, momentum=momentum_list[task_idx])

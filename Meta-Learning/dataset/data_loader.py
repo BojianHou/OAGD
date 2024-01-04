@@ -21,6 +21,9 @@ import argparse
 # from torchmeta.utils.data import BatchMetaDataLoader
 
 def load_data(dataset, ways=5, shots=5):
+    if not os.path.isdir("data"):
+        os.makedirs("data")
+
     if dataset == 'fc100':
         return load_fc100(ways, shots)
     elif dataset == 'omniglot':
@@ -83,15 +86,15 @@ def load_fc100(ways, shots):
     current_folder = os.getcwd()
 
     # Create Datasets, train (36000, 32, 32, 3), val (12000, 32, 32, 3), test (12000, 32, 32, 3)
-    train_dataset = l2l.vision.datasets.FC100(root=f'{current_folder}/data',
+    train_dataset = l2l.vision.datasets.FC100(root=f'{current_folder}/datasource',
                                               transform=tv.transforms.ToTensor(),
                                               mode='train',
                                               download=True)
-    valid_dataset = l2l.vision.datasets.FC100(root=f'{current_folder}/data',
+    valid_dataset = l2l.vision.datasets.FC100(root=f'{current_folder}/datasource',
                                               transform=tv.transforms.ToTensor(),
                                               mode='validation',
                                               download=True)
-    test_dataset = l2l.vision.datasets.FC100(root=f'{current_folder}/data',
+    test_dataset = l2l.vision.datasets.FC100(root=f'{current_folder}/datasource',
                                              transform=tv.transforms.ToTensor(),
                                              mode='test',
                                              download=True)

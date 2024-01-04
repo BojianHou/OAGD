@@ -7,6 +7,7 @@ import numpy as np
 from core.utils import gather_flat_grad,neumann_hyperstep_preconditioner
 from core.utils import get_trainable_hyper_params,assign_hyper_gradient
 from sklearn.metrics import balanced_accuracy_score
+from models.MLP import get_model
 
 
 def get_current_batches_bak(cur_epoch, window_size, dataloader):
@@ -88,7 +89,7 @@ def train_epoch(
         low_iter_alt=iter(low_loader)
     else:
         print('lr: ',low_optimizer.param_groups[0]['lr'])
-    
+
     model.train()
     total_correct=0.
     total_sample=0.

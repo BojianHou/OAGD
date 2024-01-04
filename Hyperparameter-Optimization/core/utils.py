@@ -119,7 +119,7 @@ def assign_hyper_gradient(params, gradient, num_classes):
         if para.requires_grad:
             num = para.nelement()
             grad = gradient[i:i+num].clone()
-            torch.reshape(grad, para.shape)
+            grad = torch.reshape(grad, para.shape)
             para.grad = grad
             i += num
             # para.grad=gradient[i:i+num].clone()

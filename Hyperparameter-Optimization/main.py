@@ -10,10 +10,10 @@ from core.trainer import train_epoch, eval_epoch, train_epoch_online, train_epoc
 from core.utils import loss_adjust_cross_entropy, cross_entropy,loss_adjust_cross_entropy_cdt
 from core.utils import get_init_dy, get_init_ly, get_train_w, get_val_w
 from dataset.cifar10 import load_cifar10
-from dataset.mnist import load_mnist
+from dataset.mnist import load_mnist, load_mnist_dist_shift, load_mnist_shift_every_100
 from dataset.tadpole import load_tadpole
 from dataset.adult import load_adult
-from models.MLP import build_model_mlp, build_model_cnn, get_cnn_small, get_cnn_large
+from models.MLP import build_model_mlp, build_model_cnn, get_cnn_small, get_cnn_large, get_model
 import torch.optim as optim
 import torch.nn as nn
 import time
@@ -55,18 +55,29 @@ def main(seed, args):
         # model = ResNet32(num_classes=num_classes)
         # model = build_model_cnn(num_classes, input_channel=1)
         model = get_cnn_small(hidden_size=64, n_classes=num_classes)
-        train_loader, val_loader, test_loader, eval_train_loader, eval_val_loader, num_train_samples, num_val_samples = load_mnist(
-            train_size=args["train_size"], val_size=args["val_size"],
-            balance_val=args["balance_val"], batch_size=args["low_batch_size"],
-            train_rho=args["train_rho"],
-            image_size=28, path=args["datapath"])
+        if args['data_mode'] == 'regular':
+            train_loader, val_loader, test_loader, eval_train_loader, eval_val_loader, \
+                num_train_samples, num_val_samples = load_mnist(  # load_mnist
+                train_size=args["train_size"], val_size=args["val_size"],
+                balance_val=args["balance_val"], batch_size=args["batch_size"],
+                train_rho=args["train_rho"], image_size=28, path=args["datapath"])
+        elif args['data_mode'] == 'zigzag':
+            train_loader, val_loader, test_loader, eval_train_loader, eval_val_loader, \
+                num_train_samples, num_val_samples = load_mnist_dist_shift(  # load_mnist
+                train_size=args["train_size"], val_size=args["val_size"],
+                balance_val=args["balance_val"], batch_size=args["batch_size"],
+                train_rho=args["train_rho"], image_size=28, path=args["datapath"])
+        elif args['data_mode'] == 'gradual':
+            train_loader, val_loader, test_loader, eval_train_loader, eval_val_loader, \
+                num_train_samples, num_val_samples = load_mnist_shift_every_100(args['batch_size'])
     elif dataset == 'cifar10': # the train size is (9931, 32, 32, 3), val (2487, 32, 32, 3), test (10000, 32, 32, 3)
         num_classes = 10
         # model = ResNet32(num_classes=num_classes)
         model = build_model_cnn(num_classes)
-        train_loader, val_loader, test_loader, eval_train_loader, eval_val_loader, num_train_samples, num_val_samples = load_cifar10(
+        train_loader, val_loader, test_loader, eval_train_loader, eval_val_loader, \
+            num_train_samples, num_val_samples = load_cifar10(
             train_size=args["train_size"], val_size=args["val_size"],
-            balance_val=args["balance_val"], batch_size=args["low_batch_size"],
+            balance_val=args["balance_val"], batch_size=args["batch_size"],
             train_rho=args["train_rho"],
             image_size=32, path=args["datapath"])
 
@@ -89,7 +100,7 @@ def main(seed, args):
     print(f"w_train: {w_train}\nw_val: {w_val}")
     print('ly', ly, '\n dy', dy)
 
-    print("train data size", len(train_loader.dataset), len(train_loader))
+
 
     # learning rate (step size) schedular
     up_start_epoch = args["up_configs"]["start_epoch"]
@@ -128,6 +139,7 @@ def main(seed, args):
 
     train_loader = loader_to_list(train_loader)
     val_loader = loader_to_list(val_loader)
+    print("train data size", len(train_loader[0]), len(train_loader))
 
     train_acc_list = []
     train_bacc_list = []
@@ -180,11 +192,19 @@ def main(seed, args):
 
         if args['method'] == 'autobalance':
             print('train AutoBalance...')
+            # each time the model is learned from scratch
+            # if dataset == 'adult' or dataset == 'tadpole':
+            #     model = get_model(dataset, num_classes, img_size=img_size, device=device)
+            # else:
+            #     model = get_model(dataset, num_classes, device=device)
+            # model = model.to(device)
+
             train_epoch(i, model, args,
                         low_loader=train_loader, low_criterion=loss_adjust_cross_entropy,
                         low_optimizer=train_optimizer, low_params=[dy, ly, w_train],
                         up_loader=val_loader, up_optimizer=val_optimizer,
                         up_criterion=cross_entropy, up_params=[dy, ly, w_val])
+
         elif args['method'] == 'OAGD':
             print('train OAGD...')
             train_epoch_online(i, model, args,
@@ -223,13 +243,15 @@ def main(seed, args):
 if __name__ ==  '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default='tadpole', help='adult, mnist, tadpole, cifar10')
+    parser.add_argument('--dataset', type=str, default='mnist', help='adult, mnist, tadpole, cifar10')
     parser.add_argument('--method', type=str, default='OAGD', help='autobalance, OAGD, SGD, OGD')
     parser.add_argument('--win_size', type=int, default=5, help='window size for hypergradient smoothing')
-    parser.add_argument('--batch_size', type=int, default=128)  # 128
+    parser.add_argument('--batch_size', type=int, default=64)  # 128
     parser.add_argument('--gamma', type=float, default=0.9, help='used for calculating the momentum for smoothing')
     parser.add_argument('--inner_lr', type=float, default=0.1)
     parser.add_argument('--outer_lr', type=float, default=0.001)
+    parser.add_argument('--data_mode', type=str, default='gradual', help='regular, gradual, zigzag, used for distribution shift')
+
     args = parser.parse_args()
     method = args.method
     win_size = args.win_size
@@ -238,6 +260,7 @@ if __name__ ==  '__main__':
     gamma = args.gamma
     inner_lr = args.inner_lr
     outer_lr = args.outer_lr
+    data_mode = args.data_mode
     config = f'configs/{args.dataset}.yaml'
 
     print('dataset: ', dataset)
@@ -247,6 +270,7 @@ if __name__ ==  '__main__':
     print('gamma: ', gamma)
     print('inner_lr: ', inner_lr)
     print('outer_lr: ', outer_lr)
+    print('data shift mode: ', data_mode)
 
     with open(config, mode='r') as f:
         args = yaml.load(f, Loader=yaml.FullLoader)
@@ -256,9 +280,10 @@ if __name__ ==  '__main__':
     args['gamma'] = gamma
     args['inner_lr'] = inner_lr
     args['outer_lr'] = outer_lr
+    args['data_mode'] = data_mode
     print('Device: ', args['device'])
 
-    seeds = [42]  # 42, 52, 62, 72, 82
+    seeds = [42, 52, 62, 72, 82]  # 42, 52, 62, 72, 82
 
     results = {}
     train_acc_list, train_bacc_list, train_loss_list = [], [], []
@@ -284,18 +309,19 @@ if __name__ ==  '__main__':
 
     low_lr = args['inner_lr']
     up_lr = args['outer_lr']
+    iters = args['epoch']
 
     if not os.path.isdir("results"):
         os.makedirs("results")
 
     if method == 'OAGD':
-        with open(f'results/{dataset}_{method}_win_size_{win_size}'
-                  f'_batch_size_{batch_size}_low_lr_{low_lr}_up_lr_{up_lr}'
-                  f'_gamma_{gamma}_late_lr_decay.pkl', 'wb') as f:
+        with open(f'results/{dataset}_{method}_iters_{iters}_batch_size_{batch_size}'
+                  f'_low_lr_{low_lr}_up_lr_{up_lr}_win_size_{win_size}_data_mode_{data_mode}'
+                  f'_gamma_{gamma}.pkl', 'wb') as f:
             pkl.dump(results, f)
     else:
-        with open(f'results/{dataset}_{method}_batch_size_{batch_size}'
-                  f'_low_lr_{low_lr}_up_lr_{up_lr}_late_lr_decay.pkl', 'wb') as f:
+        with open(f'results/{dataset}_{method}_iters_{iters}_batch_size_{batch_size}_data_mode_{data_mode}'
+                  f'_low_lr_{low_lr}_up_lr_{up_lr}.pkl', 'wb') as f:
             pkl.dump(results, f)
 
     print('\ndone!')
