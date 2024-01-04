@@ -27,9 +27,13 @@ with specific arguments in each folder.
 
 
 ### 📖 Reference
-Our hyperparameter-optimization code is implemented based on [AutoBalance](https://proceedings.neurips.cc/paper_files/paper/2021/file/191f8f858acda435ae0daf994e2a72c2-Paper.pdf): https://github.com/ucr-optml/AutoBalance.
+Our hyperparameter-optimization code is implemented based on [AutoBalance](https://proceedings.neurips.cc/paper_files/paper/2021/file/191f8f858acda435ae0daf994e2a72c2-Paper.pdf): 
 
-Our meta-learning code is implemented based on [iMAML](https://arxiv.org/pdf/1909.04630.pdf): https://github.com/prolearner/hypertorch/blob/master/examples/iMAML.py.
+https://github.com/ucr-optml/AutoBalance.
+
+Our meta-learning code is implemented based on [iMAML](https://arxiv.org/pdf/1909.04630.pdf): 
+
+https://github.com/prolearner/hypertorch/blob/master/examples/iMAML.py.
 
 ### 📭 Maintainers
 [Bojian Hou](http://bojianhou.com) 
