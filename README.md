@@ -1,7 +1,7 @@
 # Online Bilevel Optimization: Regret Analysis of Online Alternating Gradient Methods
 
 This repository holds the official code for the manuscript
-"Online Bilevel Optimization: Regret Analysis of Online Alternating Gradient Methods".
+"[Online Bilevel Optimization: Regret Analysis of Online Alternating Gradient Methods](https://arxiv.org/pdf/2207.02829.pdf)".
 
 ### 🦸‍ Abstract
 This paper introduces an _online bilevel optimization_ setting in which a sequence of time-varying bilevel problems are revealed one after the other. We extend the known regret bounds for single-level online algorithms to the bilevel setting. Specifically, we provide new notions of _bilevel regret_, develop an online alternating time-averaged gradient method that is capable of leveraging smoothness, and give regret bounds in terms of the path-length of the inner and outer minimizer sequences.
